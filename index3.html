@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Fetcher with Sort & Stats</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            cursor: pointer;
+        }
+        th.sorted-asc::after {
+            content: " ↑";
+        }
+        th.sorted-desc::after {
+            content: " ↓";
+        }
+        th.active {
+            background-color: #d1e7dd;
+        }
+        .loading {
+            font-size: 20px;
+            font-weight: bold;
+            color: #007BFF;
+        }
+        .stats {
+            margin-top: 20px;
+            font-size: 16px;
+        }
+        .stats div {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fetched Data with Sorting and Statistics</h1>
+    <p id="loadingMessage" class="loading">Loading data...</p>
+    <table id="dataTable" style="display:none;">
+        <thead>
+            <tr>
+                <th id="sort-id">ID</th>
+                <th id="sort-speed">Speed</th>
+                <th id="sort-result">Result</th>
+                <th id="sort-datetime">Date Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data will be populated here -->
+        </tbody>
+    </table>
+
+    <div class="stats" id="stats"></div>
+
+    <script>
+        let data = [];
+        let currentSortColumn = '';
+        let currentSortDirection = 'asc';
+
+        // Fetch data from the URL and display it
+        fetch('https://compute.samford.edu/zohauth/clients/datajson')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(fetchedData => {
+                data = fetchedData;
+                // Hide the loading message
+                document.getElementById('loadingMessage').style.display = 'none';
+                
+                // Show the table
+                const table = document.getElementById('dataTable');
+                table.style.display = 'block';
+                
+                // Display the data in the table
+                renderTable(data);
+                // Calculate and display stats
+                updateStats(data);
+            })
+            .catch(error => {
+                document.getElementById('loadingMessage').textContent = 'Error loading data: ' + error.message;
+            });
+
+        // Render the table with the given data
+        function renderTable(data) {
+            const tbody = document.querySelector('#dataTable tbody');
+            tbody.innerHTML = ''; // Clear any existing rows
+
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                
+                const cell1 = document.createElement('td');
+                cell1.textContent = item.id;
+                row.appendChild(cell1);
+                
+                const cell2 = document.createElement('td');
+                cell2.textContent = item.speed;
+                row.appendChild(cell2);
+                
+                const cell3 = document.createElement('td');
+                cell3.textContent = item.result;
+                row.appendChild(cell3);
+                
+                const cell4 = document.createElement('td');
+                cell4.textContent = item.datetime;
+                row.appendChild(cell4);
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // Sort the data by a specific column and update the table
+        function sortData(column) {
+            // Determine the new sort direction
+            const sortDirection = (currentSortColumn === column && currentSortDirection === 'asc') ? 'desc' : 'asc';
+
+            // Sort the data based on the column
+            data.sort((a, b) => {
+                if (a[column] < b[column]) return sortDirection === 'asc' ? -1 : 1;
+                if (a[column] > b[column]) return sortDirection === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            // Update the table with the sorted data
+            renderTable(data);
+
+            // Update the sort direction for the current column
+            currentSortColumn = column;
+            currentSortDirection = sortDirection;
+
+            // Update the column headers to show the sorting state
+            updateSortIndicators();
+        }
+
+        // Update column headers to reflect the sorting state
+        function updateSortIndicators() {
+            const headers = document.querySelectorAll('th');
+            headers.forEach(header => {
+                header.classList.remove('sorted-asc', 'sorted-desc', 'active');
+            });
+
+            const activeHeader = document.getElementById(`sort-${currentSortColumn}`);
+            if (currentSortDirection === 'asc') {
+                activeHeader.classList.add('sorted-asc', 'active');
+            } else {
+                activeHeader.classList.add('sorted-desc', 'active');
+            }
+        }
+
+        // Add click event listeners to column headers for sorting
+        document.getElementById('sort-id').addEventListener('click', () => sortData('id'));
+        document.getElementById('sort-speed').addEventListener('click', () => sortData('speed'));
+        document.getElementById('sort-result').addEventListener('click', () => sortData('result'));
+        document.getElementById('sort-datetime').addEventListener('click', () => sortData('datetime'));
+
+        // Calculate and display the mean, median, and mode
+        function updateStats(data) {
+            const statsDiv = document.getElementById('stats');
+            statsDiv.innerHTML = '';
+
+            // Extract numerical data for speed and id
+            const speedValues = data.map(item => item.speed).filter(val => !isNaN(val));
+            const idValues = data.map(item => item.id);
+            const resultValues = data.map(item => item.result);
+
+            // Calculate stats for speed and id
+            const meanSpeed = calculateMean(speedValues);
+            const medianSpeed = calculateMedian(speedValues);
+            const modeSpeed = calculateMode(speedValues);
+            
+            const meanId = calculateMean(idValues);
+            const medianId = calculateMedian(idValues);
+
+            // Create stats display
+            statsDiv.innerHTML += `
+                <div><strong>Speed:</strong> Mean: ${meanSpeed}, Median: ${medianSpeed}, Mode: ${modeSpeed}</div>
+                <div><strong>ID:</strong> Mean: ${meanId}, Median: ${medianId}</div>
+            `;
+
+            // Handle result column mode calculation
+            const modeResult = calculateMode(resultValues);
+            statsDiv.innerHTML += `<div><strong>Result:</strong> Mode: ${modeResult}</div>`;
+        }
+
+        // Calculate mean (average)
+        function calculateMean(values) {
+            const sum = values.reduce((acc, val) => acc + parseFloat(val), 0);
+            return (sum / values.length).toFixed(2);
+        }
+
+        // Calculate median (middle value)
+        function calculateMedian(values) {
+            const sorted = [...values].sort((a, b) => a - b);
+            const middle = Math.floor(sorted.length / 2);
+            if (sorted.length % 2 === 0) {
+                return ((sorted[middle - 1] + sorted[middle]) / 2).toFixed(2);
+            }
+            return sorted[middle].toFixed(2);
+        }
+
+        // Calculate mode (most frequent value)
+        function calculateMode(values) {
+            const frequency = {};
+            let maxFreq = 0;
+            let mode = [];
+            values.forEach(val => {
+                frequency[val] = (frequency[val] || 0) + 1;
+                if (frequency[val] > maxFreq) {
+                    maxFreq = frequency[val];
+                    mode = [val];
+                } else if (frequency[val] === maxFreq) {
+                    mode.push(val);
+                }
+            });
+            return mode.join(', ');
+        }
+    </script>
+</body>
+</html>
