@@ -1,11 +1,94 @@
-<html>
-  <head>
-    <title>Pitvh Stats</title>
-  </head>
-  <body>
-    <h1>Trackman Pitch Stats Viewer</h1>
-    Starting Date
-    Ending Date
-    <a href="details.html">Pitch 12345</a>
-  </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Fetcher</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .loading {
+            font-size: 20px;
+            font-weight: bold;
+            color: #007BFF;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fetched Data</h1>
+    <p id="loadingMessage" class="loading">Loading data...</p>
+    <table id="dataTable" style="display:none;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Speed</th>
+                <th>Result</th>
+                <th>Date Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data will be populated here -->
+        </tbody>
+    </table>
+
+    <script>
+        // Fetch data from the URL and display it
+        fetch('https://compute.samford.edu/zohauth/clients/datajson')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Hide the loading message
+                document.getElementById('loadingMessage').style.display = 'none';
+                
+                // Show the table
+                const table = document.getElementById('dataTable');
+                table.style.display = 'block';
+
+                // Get the tbody to populate with data
+                const tbody = table.querySelector('tbody');
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    
+                    // Create table cells for each property in the data
+                    const cell1 = document.createElement('td');
+                    cell1.textContent = item.id;
+                    row.appendChild(cell1);
+                    
+                    const cell2 = document.createElement('td');
+                    cell2.textContent = item.speed;
+                    row.appendChild(cell2);
+                    
+                    const cell3 = document.createElement('td');
+                    cell3.textContent = item.result;
+                    row.appendChild(cell3);
+                    
+                    const cell4 = document.createElement('td');
+                    cell4.textContent = item.datetime;
+                    row.appendChild(cell4);
+                    
+                    // Append the row to the table body
+                    tbody.appendChild(row);
+                });
+            })
+            .catch(error => {
+                document.getElementById('loadingMessage').textContent = 'Error loading data: ' + error.message;
+            });
+    </script>
+</body>
 </html>
